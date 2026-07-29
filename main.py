@@ -10,7 +10,7 @@ import datetime
 from pathlib import Path
 
 import config
-from llm.runner import LLMRunner, find_model
+from llm.runner import LLMRunner, find_model as _find_model
 from interview.session import InterviewSession
 from interview.knowledge_mapper import Quadrant
 from prompt_builder import confidence_map as cmap
@@ -21,17 +21,17 @@ from gui.terminal_ui import TerminalUI
 def main():
     ui = TerminalUI()
 
-    # ── find interview model ──────────────────────────────────────────────────
-    model_path = find_model(config.INTERVIEW_MODEL_PRIORITY)
-    if not model_path:
+    # ── find model ────────────────────────────────────────────────────────────
+    model_info = _find_model()
+    if not model_info:
         ui.console.print(
-            f"[bold red]No GGUF models found in {config.MODELS_DIR}[/bold red]\n"
-            "Run [bold]python download_models.py[/bold] first."
+            "[bold red]No models found.[/bold red]\n"
+            "Start Ollama with a model, or run [bold]python download_models.py[/bold]."
         )
         sys.exit(1)
 
-    ui.console.print(f"[dim]Loading model: {model_path.name}[/dim]")
-    llm = LLMRunner(model_path)
+    ui.console.print(f"[dim]Using model: {model_info['name']} ({model_info['backend']})[/dim]")
+    llm = LLMRunner(model_info)
 
     # ── run interview ─────────────────────────────────────────────────────────
     session = InterviewSession(llm=llm, ui=ui)
@@ -54,13 +54,14 @@ def main():
         ui.console.print("\n[dim]Updated confidence map:[/dim]")
         cmap.render(state.knowledge_map, ui.console)
 
-    # ── synthesis model (optional swap) ──────────────────────────────────────
-    if not config.USE_SINGLE_MODEL:
-        synthesis_path = find_model(config.SYNTHESIS_MODEL_PRIORITY)
-        if synthesis_path and synthesis_path != model_path:
-            ui.status(f"Loading synthesis model: {synthesis_path.name}")
+    # ── synthesis model (optional swap — GGUF only, Ollama uses same model) ──
+    if not config.USE_SINGLE_MODEL and model_info["backend"] == "gguf":
+        from llm.runner import find_model as _fm2
+        syn = _fm2()
+        if syn and syn["name"] != model_info["name"]:
+            ui.status(f"Loading synthesis model: {syn['name']}")
             llm.unload()
-            llm = LLMRunner(synthesis_path)
+            llm = LLMRunner(syn)
 
     # ── build prompt ──────────────────────────────────────────────────────────
     ui.status("Building your prompt…")

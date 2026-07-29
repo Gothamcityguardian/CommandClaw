@@ -54,11 +54,16 @@ class TerminalUI:
 
     def assistant_start(self):
         self._assistant_buf = ""
+        self._first_chunk = True
         self.console.print(f"\n[bold cyan]CommandClaw[/bold cyan] ", end="")
 
     def assistant_chunk(self, text: str):
-        # Strip [READY_TO_ADVANCE] if it leaks through
         clean = text.replace("[READY_TO_ADVANCE]", "")
+        if self._first_chunk:
+            clean = clean.lstrip("\n")  # drop leading newlines from model output
+            if not clean:
+                return
+            self._first_chunk = False
         if clean:
             self.console.print(clean, end="")
             self._assistant_buf += clean

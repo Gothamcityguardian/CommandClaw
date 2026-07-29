@@ -52,7 +52,9 @@ exactly: """ + ADVANCE_SIGNAL + """
 """
 
 _KNOWLEDGE_SYSTEM = """\
-You are CommandClaw, an expert prompt engineer.
+You are CommandClaw, an expert prompt engineer. The interview is already in \
+progress — do not greet the user or re-introduce yourself. Jump straight into \
+your first question for this phase.
 
 PHASE: Knowledge Assessment
 Domain: {domain}
@@ -78,7 +80,9 @@ Rules:
 """
 
 _SCOPE_SYSTEM = """\
-You are CommandClaw, an expert prompt engineer.
+You are CommandClaw, an expert prompt engineer. The interview is already in \
+progress — do not greet the user or re-introduce yourself. Jump straight into \
+your first question for this phase.
 
 PHASE: Scope & Constraints
 Goal: {goal}
@@ -174,11 +178,16 @@ class InterviewSession:
     # ── phase runner ──────────────────────────────────────────────────────────
 
     def _run_phase(self, system_prompt: str, extract_prompt: str, apply_fn):
-        phase_history: list[dict] = [{"role": "system", "content": system_prompt}]
+        sys_msg = {"role": "system", "content": system_prompt}
+        phase_turns: list[dict] = []  # just this phase's turns (no system msg)
+
+        def _build_messages() -> list[dict]:
+            # system + prior phases (context) + this phase's turns so far
+            return [sys_msg] + self.history + phase_turns
 
         # Opening move from LLM
-        opening = self._llm_turn(phase_history)
-        phase_history.append({"role": "assistant", "content": opening})
+        opening = self._llm_turn(_build_messages())
+        phase_turns.append({"role": "assistant", "content": opening})
 
         ready = ADVANCE_SIGNAL in opening
 
@@ -186,21 +195,21 @@ class InterviewSession:
             user_text = self.ui.user_input()
             if user_text.strip().lower() in ("/next", "next"):
                 break
-            phase_history.append({"role": "user", "content": user_text})
+            phase_turns.append({"role": "user", "content": user_text})
 
-            reply = self._llm_turn(phase_history)
-            phase_history.append({"role": "assistant", "content": reply})
+            reply = self._llm_turn(_build_messages())
+            phase_turns.append({"role": "assistant", "content": reply})
             ready = ADVANCE_SIGNAL in reply
 
         # Extraction step (silent)
         self.ui.status("Analysing…")
-        extract_messages = phase_history + [{"role": "user", "content": extract_prompt}]
+        extract_messages = _build_messages() + [{"role": "user", "content": extract_prompt}]
         data = self.llm.extract_json(extract_messages)
         if data:
             apply_fn(data)
 
-        # Carry forward into global history for context in later phases
-        self.history.extend(phase_history[1:])  # skip per-phase system prompt
+        # Carry this phase's turns into global history for later phases
+        self.history.extend(phase_turns)
 
     # ── LLM wrapper with streaming ────────────────────────────────────────────
 

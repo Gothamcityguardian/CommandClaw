@@ -151,13 +151,3 @@ CommandClaw/
 | `/next` | Advance to the next phase immediately |
 | `Ctrl+C` | Exit |
 
----
-
-## Relationship to SeekClaw
-
-CommandClaw and SeekClaw share the same runtime environment and model store but are independent tools:
-
-- **SeekClaw** — reads project documents, answers DHF checklist questions
-- **CommandClaw** — interviews you, constructs a prompt for a top-tier model
-
-They do not share code and can be transferred independently.
