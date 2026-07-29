@@ -1,0 +1,4 @@
+rich>=13.0
+duckduckgo-search>=6.0
+huggingface_hub>=0.20
+# llama-cpp-python installed separately by setup.sh with correct backend flags
